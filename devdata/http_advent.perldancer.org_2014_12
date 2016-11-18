@@ -1,0 +1,365 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+<title> A test to remember: testing your web application | PerlDancer Advent Calendar</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="alternate" type="application/rss+xml" title="All Articles " href="/feed/2014" /> 
+
+
+<!-- Grab Google CDN's jQuery. fall back to local if necessary -->
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js" type="text/javascript"></script>
+<script type="text/javascript">/* <![CDATA[ */
+    !window.jQuery && document.write('<script src="/javascripts/jquery.js"><\/script>')
+/* ]]> */</script>
+
+<!-- Prettyfy -->
+<link href="/css/prettify.css" type="text/css" rel="stylesheet" />
+<script type="text/javascript" src="/javascripts/prettify.js"></script>
+
+</head>
+<body onload="prettyPrint()">
+<div id="page">
+
+<div id="sidebar">
+<a href="/" class="homelink">Dancer Advent Calendar</a><br />
+
+<p>
+The PerlDancer Advent Calendar is a community-driven project that aims 
+to showcase the Dancer Perl web framework.
+</p>
+
+<p>
+Each day of December until Christmas, one article about Dancer. Stay tuned for new moves!
+</p>
+
+<ul id="sidebar-items">
+<li>
+    <h3>About Dancer</h3>
+    <ul class="links">
+        <li><a href="http://www.perldancer.org/">Dancer homepage</a></li>
+        <li><a href="http://twitter.com/PerlDancer">Official Twitter</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer">Dancer on GitHub</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer2">Dancer 2 on GitHub</a></li>
+        <li><a class="feed" href="/feed/2014">RSS</a></li>
+    </ul>
+</li>
+</ul>
+</div>
+
+
+<div id="content">
+<div class="pod-document"><h1><a name="a_test_to_remember__testing_your_web_application"></a>A test to remember: testing your web application</h1>
+
+<p>Perl has an extensive culture of testing which originated in the Perl
+language itself, carrying a staggering number of tests for its own
+features.</p>
+<p>We write a multitude of tests for every single bit in our distributions and
+we test them across different platforms, setups, versions of modules and
+applications, and even on different versions of perl[1] itself.</p>
+<p>For non-Perl regulars, you might think I'm exaggerating. Oh no, I'm not.
+Check out <a href="http://cpants.cpanauthors.org/">CPANTS, our CPAN Testing Service</a>
+for more details on our amazing free Perl testing service.</p>
+<p>It's safe to say: we love tests.</p>
+<p><i>[1] We use <b>Perl</b> (uppercase) for the language and <b>perl</b> (lowercase)
+for the interpreter</i>.</p>
+<h2><a name="but_in_the_land_of_web___"></a>But in the land of web...</h2>
+
+<p>In the world of web, testing is trickier. A web application runs on a web
+server. That is usually an application written in another language (often
+C or C++), a long-running process with lots of configuration files and
+behavior that is hard to decouple.</p>
+<p><a href="https://metacpan.org/module/LWP">LWP</a> Gave us <a href="https://metacpan.org/module/LWP::UserAgent">LWP::UserAgent</a> which gave us <a href="https://metacpan.org/module/WWW::Mechanize">WWW::Mechanize</a>. As long
+as we had a web server running, we could just write some tests (turned on
+with an environment variable) that will make requests and test the results,
+producing proper TAP. There's even <a href="https://metacpan.org/module/Test::WWW::Mechanize">Test::WWW::Mechanize</a> to make it
+smoother.</p>
+<p>However, these don't handle the problem with testing in a web environment:
+the web server itself.</p>
+<h2><a name="enter_psgi"></a>Enter PSGI</h2>
+
+<p>Any web application built on a <a href="https://metacpan.org/module/PSGI">PSGI</a> framework allows to approach the
+problem from an entirely different perspective.</p>
+<p><a href="https://metacpan.org/module/PSGI">PSGI</a> applications (such as those created with Dancer) are actually
+code references fed to a web server. This means that as long as you create
+the proper request (specified by the <a href="https://metacpan.org/module/PSGI">PSGI</a> docs), you can call that
+application code reference with it and receive a response. No server is
+actually necessary. The server is merely there to create a proper
+request.</p>
+<p><a href="https://metacpan.org/module/Plack">Plack</a>, the set of utilities for <a href="https://metacpan.org/module/PSGI">PSGI</a> applications, comes with a
+special module to help this process: <a href="https://metacpan.org/module/Plack::Test">Plack::Test</a>.</p>
+<p>What <a href="https://metacpan.org/module/Plack::Test">Plack::Test</a> does is truly fantastic: it receives a common web
+request (using standard <a href="https://metacpan.org/module/HTTP::Request">HTTP::Request</a> objects), fakes a web
+server in order to create a proper PSGI request, and sends it to the web
+application. When the web application returns a PSGI response (which Dancer
+applications do), it will then convert it to a common web response (as a
+standard <a href="https://metacpan.org/module/HTTP::Response">HTTP::Response</a> object).</p>
+<p>This allows you to then create requests in your test, create the code
+reference for your web application, call them, and receive a response
+object, which you can then test to your heart's delight.</p>
+<p>Let's take a look at a few examples.</p>
+<h2><a name="basic_example"></a>Basic example</h2>
+
+<p>Assuming we have a web application:</p>
+<pre class="prettyprint"># MyApp.pm
+package MyApp;
+use Dancer2;
+get '/' =&gt; sub {'OK'};
+1;</pre>
+
+<p>Now we want to write a test for it. Let's create <i>base.t</i>:</p>
+<pre class="prettyprint"># base.t
+use strict;
+use warnings;
+use Test::More tests =&gt; 2;
+use Plack::Test;
+use HTTP::Request;
+use MyApp;</pre>
+
+<p>Now let's create a coderef for our application using the <code>to_app</code> keyword:</p>
+<pre class="prettyprint">my $app = MyApp-&gt;to_app;</pre>
+
+<p>That was easy. Now let's create a test object from <a href="https://metacpan.org/module/Plack::Test">Plack::Test</a> for our
+application:</p>
+<pre class="prettyprint">my $test = Plack::Test-&gt;create($app);</pre>
+
+<p>Now we can call requests on it. We'll create our first request object and
+send it to our test object to receive a response:</p>
+<pre class="prettyprint">my $request  = HTTP::Request-&gt;new( GET =&gt; '/' );
+my $response = $test-&gt;request($request);</pre>
+
+<p>We can now test it:</p>
+<pre class="prettyprint">ok( $response-&gt;is_success, '[GET /] Successful request' );
+is( $response-&gt;content, 'OK', '[GET /] Correct content' );</pre>
+
+<h2><a name="putting_it_all_together"></a>Putting it all together</h2>
+
+<p>If we put all our code together and remove some excess, we can come up
+with the following test file:</p>
+<pre class="prettyprint"># base.t
+use strict;
+use warnings;
+use Test::More;
+use Plack::Test;
+use HTTP::Request::Common;
+use MyApp;
+
+my $test     = Plack::Test-&gt;create( MyApp-&gt;to_app );
+my $response = $test-&gt;request( GET '/' );
+
+ok( $response-&gt;is_success, '[GET /] Successful request' );
+is( $response-&gt;content, 'OK', '[GET /] Correct content' );
+
+done_testing();</pre>
+
+<p>It might seem like too much boilerplate, but there's enough modules to
+help you reduce that.</p>
+<h2><a name="subtests"></a>Subtests</h2>
+
+<p>We also separate our tests using <a href="https://metacpan.org/module/Test::More">Test::More</a>'s <code>subtest</code> functionality,
+thus creating multiple self-contained tests that don't overwrite each other.</p>
+<p>Assuming we have a different app that has two states we want to test.</p>
+<pre class="prettyprint"># MyApp.pm
+package MyApp;
+use Dancer2;
+set serializer =&gt; 'JSON';
+
+get '/' =&gt; sub {
+    my $user = param('user');
+
+    $user and return { user =&gt; $user };
+
+    return {};
+};
+
+1;</pre>
+
+<p>This is a very contrived example of a route that checks for a user
+parameter. If it exists, it returns it in a hash with the key 'user'. If
+not, it returns an empty hash. Useful? Probably not, but a good example
+for having two tests.</p>
+<pre class="prettyprint"># param.t
+use strict;
+use warnings;
+use Test::More;
+use Plack::Test;
+use HTTP::Request::Common;
+use MyApp;
+
+my $test = Plack::Test-&gt;create( MyApp-&gt;to_app );
+
+subtest 'A empty request' =&gt; sub {
+    my $res = $test-&gt;request( GET '/' );
+    ok( $res-&gt;is_success, 'Successful request' );
+    is( $res-&gt;content '{}', 'Empty response back' );
+};
+
+subtest 'Request with user' =&gt; sub {
+    my $res = $test-&gt;request( GET '/?user=sawyer_x' );
+    ok( $res-&gt;is_success, 'Successful request' );
+    is( $res-&gt;content '{"user":"sawyer_x"}', 'Empty response back' );
+};
+
+done_testing();</pre>
+
+<p>We could, of course, use <a href="https://metacpan.org/module/JSON">JSON</a> to decode and check for a proper object,
+which would be the right thing for a bigger response. Did I say
+<i>contrived</i> yet? :)</p>
+<h2><a name="cookies"></a>Cookies</h2>
+
+<p>One interesting requirement is being able to handle cookies, mostly used
+for maintaining sessions. We can use <a href="https://metacpan.org/module/Test::WWW::Mechanize::PSGI">Test::WWW::Mechanize::PSGI</a> or
+<a href="https://metacpan.org/module/LWP::Protocol::PSGI">LWP::Protocol::PSGI</a>, I personally prefer using <a href="https://metacpan.org/module/HTTP::Cookies">HTTP::Cookies</a> directly.</p>
+<p>Taking the previous test, assuming it actually creates and uses cookies
+for sessions, all we would need is the following:</p>
+<pre class="prettyprint"># ... all the use statements
+use HTTP::Cookies;
+
+my $jar  = HTTP::Cookies-&gt;new;
+my $test = Plack::Test-&gt;create( MyApp-&gt;to_app );
+my $host = 'http://127.0.0.1';
+
+subtest 'A empty request' =&gt; sub {
+    my $res = $test-&gt;request( GET "$host/" );
+    ok( $res-&gt;is_success, 'Successful request' );
+    is( $res-&gt;content '{}', 'Empty response back' );
+    $jar-&gt;extract_cookies($res);
+    ok( $jar-&gt;as_string, 'We have cookies!' );
+};
+
+subtest 'Request with user' =&gt; sub {
+    my $req = GET "$host/?user=sawyer_x";
+    $jar-&gt;add_cookie_header($req);
+    my $res = $test-&gt;request($req);
+    ok( $res-&gt;is_success, 'Successful request' );
+    is( $res-&gt;content '{"user":"sawyer_x"}', 'Empty response back' );
+    $jar-&gt;extract_cookies($res);
+
+    ok( ! $jar-&gt;as_string, 'All cookies deleted' );
+};
+
+done_testing();</pre>
+
+<p>Here we create a cookie jar, make sure all our requests and responses work
+with it, and we can even check for existing cookies, as well as cookies
+that were deleted by the response, since <a href="https://metacpan.org/module/HTTP::Cookies">HTTP::Cookies</a> will understand
+a delete request (by setting an older time) and delete it.</p>
+<p>You will notice that we use a full domain. This is because
+<a href="https://metacpan.org/module/HTTP::Cookies">HTTP::Cookies</a> needs the entire URL (including the scheme part) to make
+the cookies work.</p>
+<h2><a name="accessing_the_configuration_file"></a>Accessing the configuration file</h2>
+
+<p>By importing <a href="https://metacpan.org/module/Dancer2">Dancer2</a> in your command line scripts, you have full
+access to the configuration using the imported keywords:</p>
+<pre class="prettyprint">use strict;
+use warnings;
+use Test::More;
+use Plack::Test;
+use HTTP::Request::Common;
+use MyApp;
+use Dancer2;
+
+my $appname = config-&gt;{'appname'};
+diag "Testing $appname";
+
+# ...</pre>
+
+<p>In this example we use the <code>config</code> keyword to access the
+configuration. That's all you have to do if you want to access it as part
+of your test.</p>
+<h2><a name="testing_environment"></a>Testing environment</h2>
+
+<p>You can also set your own environment file for testing, such as
+<code>environments/testing.yml</code> and then load it in your test script:</p>
+<pre class="prettyprint">BEGIN { $ENV{'DANCER_ENV'} = 'testing' }
+# ...</pre>
+
+<p>Now you can insert your own configurations.</p>
+<h2><a name="setup_method"></a>Setup method</h2>
+
+<p>My current favorite method for dynamically handling onfigurations in my
+<a href="https://metacpan.org/module/Dancer2">Dancer2</a> applications is by having a <code>setup</code> method. When loading my
+applications in my handlers, I call that method, and it then checks the
+configuration for variables.</p>
+<p>This allows me to tweak and change the configuration before calling the
+<code>setup</code> method, thus letting me bootstrap my own changes, such as in
+testing scripts.</p>
+<p>A separate article about this trick just might appear on the Advent
+Calendar this year.</p>
+<h2><a name="where_are_the_test_helpers"></a>Where are the test helpers?</h2>
+
+<p>Both Dancer 1 and 2 have <a href="https://metacpan.org/module/Dancer::Test">Dancer::Test</a> and <a href="https://metacpan.org/module/Dancer2::Test">Dancer2::Test</a>, respectively,
+but in <a href="https://metacpan.org/module/Dancer2">Dancer2</a> it is currently not recommended.</p>
+<p>The reason is that, because they weren't written with PSGI in mind, they
+are bending over backwards in order to fake the request, run it against
+a fake dispatcher, and then return a fake response.</p>
+<p>At the end of the day, it isn't only buggy and took a lot of our time and
+efforts into maintaining it, but it is also counter-intuitive.</p>
+<p>We might reinstate it later, once we've redesigned it to simply be a helper
+layer on top of <a href="https://metacpan.org/module/Plack::Test">Plack::Test</a>.</p>
+<p>For now, we suggest to avoid it and go directly for <a href="https://metacpan.org/module/Plack::Test">Plack::Test</a>.</p>
+<h2><a name="conclusion"></a>Conclusion</h2>
+
+<p>Writing tests is a lot of fun and they help us make sure our applications
+work the way we want them to work. They help flesh out features, APIs,
+and maintain their correctness throughout changes, big and small.</p>
+<p>Writing tests for web application used to be difficult, but now, with the
+magic of <a href="https://metacpan.org/module/PSGI">PSGI</a>, it is simple and straight-forward.</p>
+<p>You can read more about testing in <a href="https://metacpan.org/module/Dancer2::Manual::Testing">Dancer2::Manual::Testing</a>.</p>
+<p>Our next article will cover how we write tests ourselves in the <a href="https://metacpan.org/module/Dancer2">Dancer2</a>
+core.</p>
+<h2><a name="author"></a>Author</h2>
+
+<p>This article has been written by Sawyer X for the Perl
+Dancer Advent Calendar 2014.</p>
+<h2><a name="copyright"></a>Copyright</h2>
+
+<p>No copyright retained. Enjoy.</p>
+<p>2014 // Sawyer X <code>&lt;xsawyerx@cpan.org&gt;</code></p>
+</div>
+
+ <div id="disqus_thread"></div>
+    <script type="text/javascript">
+        /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+        var disqus_shortname = 'danceradvent'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function() {
+            var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+            dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+
+
+
+</div>
+
+
+
+<div id="footer">
+Powered by the  
+<a href="http://perldancer.org/" title="Perl Dancer - Perl web framework">
+Dancer Perl web framework</a>
+</div>
+</div>
+
+
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-25174467-2']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+</body>
+</html>

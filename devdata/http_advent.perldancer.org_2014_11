@@ -1,0 +1,241 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+<title> Serial Serializer - making API writing easier | PerlDancer Advent Calendar</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="alternate" type="application/rss+xml" title="All Articles " href="/feed/2014" /> 
+
+
+<!-- Grab Google CDN's jQuery. fall back to local if necessary -->
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js" type="text/javascript"></script>
+<script type="text/javascript">/* <![CDATA[ */
+    !window.jQuery && document.write('<script src="/javascripts/jquery.js"><\/script>')
+/* ]]> */</script>
+
+<!-- Prettyfy -->
+<link href="/css/prettify.css" type="text/css" rel="stylesheet" />
+<script type="text/javascript" src="/javascripts/prettify.js"></script>
+
+</head>
+<body onload="prettyPrint()">
+<div id="page">
+
+<div id="sidebar">
+<a href="/" class="homelink">Dancer Advent Calendar</a><br />
+
+<p>
+The PerlDancer Advent Calendar is a community-driven project that aims 
+to showcase the Dancer Perl web framework.
+</p>
+
+<p>
+Each day of December until Christmas, one article about Dancer. Stay tuned for new moves!
+</p>
+
+<ul id="sidebar-items">
+<li>
+    <h3>About Dancer</h3>
+    <ul class="links">
+        <li><a href="http://www.perldancer.org/">Dancer homepage</a></li>
+        <li><a href="http://twitter.com/PerlDancer">Official Twitter</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer">Dancer on GitHub</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer2">Dancer 2 on GitHub</a></li>
+        <li><a class="feed" href="/feed/2014">RSS</a></li>
+    </ul>
+</li>
+</ul>
+</div>
+
+
+<div id="content">
+<div class="pod-document"><h1><a name="serial_serializer___making_api_writing_easier"></a>Serial Serializer - making API writing easier</h1>
+
+<p>One of Dancer's engines is the <b>serializer</b>, which helps you with writing
+APIs.</p>
+<p>Serializers essentially do two things:</p>
+<ul>
+<li><a name="item_Deserialize_incoming_requests"></a><b>Deserialize incoming requests</b>
+<p>When a user makes a request with serialized input, the serializer
+automatically deserializes it into actual input parameters.</p>
+</li>
+<li><a name="item_Serialize_outgoing_responses"></a><b>Serialize outgoing responses</b>
+<p>When you return a data structure from a route, it will automatically serialize
+it for you before returning it to the user.</p>
+</li>
+</ul>
+<h2><a name="configuring"></a>Configuring</h2>
+
+<p>In order to configure a serializer, you just need to pick which format
+you want for encoding/decoding (from the available
+Serializer namespace - <code>Dancer::Serializer</code> for Dancer 1 and
+<code>Dancer2::Serializer</code> for Dancer2) and set it up using the <code>serializer</code>
+configuration keyword.</p>
+<p>It's recommended to explicitly add it in the actual code instead of the
+configuration file so it doesn't apply automatically to every app that
+reads the configuration file (unless that's what you want):</p>
+<pre class="prettyprint">package MyApp;
+use Dancer2;
+set serializer =&gt; 'JSON'; # Dancer2::Serializer::JSON
+
+...</pre>
+
+<h2><a name="using"></a>Using</h2>
+
+<p>Now that we have a serializer set up, we can just return data structures:</p>
+<pre class="prettyprint">get '/' =&gt; sub {
+    return { resources =&gt; \%resources };
+};</pre>
+
+<p>When we return this data structure, it will automatically be serialized
+into JSON. No other code is necessary.</p>
+<p>We also now receive requests in JSON:</p>
+<pre class="prettyprint">post '/:entity/:id' =&gt; sub {
+    my $entity = param('entity');
+    my $id     = param('id');
+
+    # input which was sent serialized
+    my $user = param('user');
+
+    ...
+};</pre>
+
+<p>We can now make a serialized request:</p>
+<pre class="prettyprint">$ curl -X POST http://ourdomain/person/16 -d '{"user":"sawyer_x"}'</pre>
+
+<p>It's all automatic.</p>
+<h2><a name="always_or_never"></a>Always or never</h2>
+
+<p>In previous versions of <a href="https://metacpan.org/module/Dancer2">Dancer2</a> (and in <a href="https://metacpan.org/module/Dancer">Dancer</a> 1), serializers were only
+used when the data is a reference.</p>
+<p>There were some issues with that:</p>
+<ul>
+<li><a name="item_Unclear_behavior"></a><b>Unclear behavior</b>
+<p>You could have mixed routes that return serialized and non-serialized
+content, which is a source for confusion and inconsistency.</p>
+<p>Now you simply handle this by providing a package that has a serializer
+and a package that renders content. You can then separate them to different
+mounting points using <a href="https://metacpan.org/module/Plack::Builder">Plack::Builder</a> as explained in a previous article
+and showed below.</p>
+</li>
+<li><a name="item_What_if_the_data_is_a_string_"></a><b>What if the data is a string?</b>
+<p>Some serializers actually handle strings. <a href="https://metacpan.org/module/Dancer2::Serializer::CBOR">Dancer2::Serializer::CBOR</a>, for
+example, can serialize strings. This previous ref-only behavior would render
+those serializers broken - not good.</p>
+</li>
+</ul>
+<p>Instead, now everything is sent to serializers. Bad requests receive
+warnings and errors.</p>
+<h2><a name="hooks"></a>Hooks</h2>
+
+<p>While we're still working on adding an error hook, you can already hook
+into the serializer with a <i>before</i> and <i>after</i>:</p>
+<pre class="prettyprint">hook before_serializer =&gt; sub {...};
+hook after_serializer  =&gt; sub {...};</pre>
+
+<h2><a name="app_specific_feature"></a>App-specific feature</h2>
+
+<p>Remember that serializers are engines. They affect a Dancer Application,
+which means that once you've set a serializer, <b>all</b> routes within that
+package will be serialized and deserialized. This is how the feature works.</p>
+<p>As suggested above, if you would like to have both, you need to create
+another application which will not be serialized.</p>
+<p>A common usage for this is an API providing serialized endpoints (and
+receiving serialized requests) and providing rendered pages.</p>
+<pre class="prettyprint"># MyApp.pm
+package MyApp;
+use Dancer2;
+
+# another useful feature:
+set auto_page =&gt; 1;
+
+get '/' =&gt; sub { template 'index' =&gt; {...} };
+
+# MyApp/API.pm
+package MyApp::API;
+use Dancer2;
+set serializer =&gt; 'JSON'; # or any other serializer
+
+get '/' =&gt; sub { +{ resources =&gt; \%resources, ... } };
+
+# user-specific routes, for example
+prefix =&gt; '/users' =&gt; sub {
+    get '/view'     =&gt; sub {...};
+    get '/view/:id' =&gt; sub {...};
+    put '/add'      =&gt; sub {...}; # automatically deserialized params
+};
+
+...</pre>
+
+<p>Then those will be mounted together for a single app:</p>
+<pre class="prettyprint"># handler: app.pl:
+use MyApp;
+use MyApp::API;
+use Plack::Builder;
+
+builder {
+    mount '/'    =&gt; MyApp-&gt;to_app;
+    mount '/api' =&gt; MyApp::API-&gt;to_app;
+};</pre>
+
+<p>There ya go!</p>
+<h2><a name="conclusion"></a>Conclusion</h2>
+
+<p>Serializers make it much easier to write API interfaces. We recommend using
+them in order to save yourself on typing. However, use caution knowing they
+will handle all input and all output and affect all routes in a package.</p>
+<h2><a name="author"></a>Author</h2>
+
+<p>This article has been written by Sawyer X for the Perl
+Dancer Advent Calendar 2014.</p>
+<h2><a name="copyright"></a>Copyright</h2>
+
+<p>No copyright retained. Enjoy.</p>
+<p>2014 // Sawyer X <code>&lt;xsawyerx@cpan.org&gt;</code></p>
+</div>
+
+ <div id="disqus_thread"></div>
+    <script type="text/javascript">
+        /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+        var disqus_shortname = 'danceradvent'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function() {
+            var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+            dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+
+
+
+</div>
+
+
+
+<div id="footer">
+Powered by the  
+<a href="http://perldancer.org/" title="Perl Dancer - Perl web framework">
+Dancer Perl web framework</a>
+</div>
+</div>
+
+
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-25174467-2']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+</body>
+</html>

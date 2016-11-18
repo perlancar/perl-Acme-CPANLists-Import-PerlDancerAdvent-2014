@@ -1,0 +1,302 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+<title> Dynamic routing in Dancer is dynamic | PerlDancer Advent Calendar</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="alternate" type="application/rss+xml" title="All Articles " href="/feed/2014" /> 
+
+
+<!-- Grab Google CDN's jQuery. fall back to local if necessary -->
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js" type="text/javascript"></script>
+<script type="text/javascript">/* <![CDATA[ */
+    !window.jQuery && document.write('<script src="/javascripts/jquery.js"><\/script>')
+/* ]]> */</script>
+
+<!-- Prettyfy -->
+<link href="/css/prettify.css" type="text/css" rel="stylesheet" />
+<script type="text/javascript" src="/javascripts/prettify.js"></script>
+
+</head>
+<body onload="prettyPrint()">
+<div id="page">
+
+<div id="sidebar">
+<a href="/" class="homelink">Dancer Advent Calendar</a><br />
+
+<p>
+The PerlDancer Advent Calendar is a community-driven project that aims 
+to showcase the Dancer Perl web framework.
+</p>
+
+<p>
+Each day of December until Christmas, one article about Dancer. Stay tuned for new moves!
+</p>
+
+<ul id="sidebar-items">
+<li>
+    <h3>About Dancer</h3>
+    <ul class="links">
+        <li><a href="http://www.perldancer.org/">Dancer homepage</a></li>
+        <li><a href="http://twitter.com/PerlDancer">Official Twitter</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer">Dancer on GitHub</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer2">Dancer 2 on GitHub</a></li>
+        <li><a class="feed" href="/feed/2014">RSS</a></li>
+    </ul>
+</li>
+</ul>
+</div>
+
+
+<div id="content">
+<div class="pod-document"><h1><a name="dynamic_routing_in_dancer_is_dynamic"></a>Dynamic routing in Dancer is dynamic</h1>
+
+<p>Dancer provides with a number of ways to do dynamic routing, A.K.A.,
+chained actions. Let's take a look at situations that lead to such
+a requirement and how to achieve it.</p>
+<h2><a name="the_use_case"></a>The use-case</h2>
+
+<p>Let's say you were building a message board that supported any number of
+boards - each with a custom URL. For example, if this were something for a
+Beethoven fan site you might have a board for discussing each genre of work
+composed by him, with URLs like:</p>
+<ul>
+<li><a name="item_http___www_beethovenfans_com_string_quartets_"></a><b>http://www.beethovenfans.com/string-quartets/</b>
+</li>
+<li><a name="item_http___www_beethovenfans_com_symphonies_"></a><b>http://www.beethovenfans.com/symphonies/</b>
+</li>
+<li><a name="item_http___www_beethovenfans_com_piano_sonatas_"></a><b>http://www.beethovenfans.com/piano-sonatas/</b>
+</li>
+</ul>
+<p>Visiting the top-level board url would show you a list of all posts under
+that board. You could start a discussion by simply using <i>/new-post</i> under
+the board name. So to start a discussion under string-quartets, you'd go to:</p>
+<pre class="prettyprint">http://www.beethovenfans.com/string-quartets/new-post</pre>
+
+<p>Similarly, you could view or permalink to a specific post as:</p>
+<pre class="prettyprint">http://www.beethovenfans.com/string-quartets/opus-18-no-6</pre>
+
+<p>Where <i>opus-18-no-6</i> is the unique identifier of the post - possibly generated
+from the title of the post.</p>
+<p>Similarly, to upvote a post on the board:</p>
+<pre class="prettyprint">http://www.beethovenfans.com/string-quartets/opus-18-no-6/upvote</pre>
+
+<p>Each time someone accesses one of these URLs, you first need to check if the
+discussion board exists. To put it in code:</p>
+<pre class="prettyprint">get '/:board' =&gt; sub {
+    my $board = param('board');
+
+    # validation code for $board
+    ...
+};
+
+get '/:board/new-post' =&gt; sub {
+    my $board = param('board');
+
+    # validation code for $board
+};
+
+get '/:board/opus-18-no-6/upvote' =&gt; sub {
+    my $board = param('board');
+
+    # validation code for $board
+};</pre>
+
+<p>Each of these handlers have to start by validating the existence of a
+discussion board before they do anything else. It makes sense to have the
+discussion board validation logic in one place.</p>
+<h2><a name="setup_method"></a>Setup method</h2>
+
+<p>One way to do this is by defining a special setup method which you call
+when the application starts up. This method can use the <b><code>prefix</code></b>
+keyword to set up routes for each board.</p>
+<pre class="prettyprint">sub get_boards {
+    # in a real life application this would come from a
+    # database. for the sake of simplicity, we simply return
+    # a hard-coded list
+
+    return qw(string-quartets symphonies piano-sonatas piano-trios);
+}
+
+sub setup_routes {
+    my @boards = get_boards;
+
+    foreach my $board (@boards) {
+
+        prefix "/$board" =&gt; sub {
+
+            # any variables here will be accessible to the handlers
+            # defined below
+            my $welcome_message = "Welcome to the group for discussing: $board";
+
+            get '/' =&gt; sub {
+                # show a list of all the posts under the board $board
+                # for demo's sake simply return the welcome message
+                return $welcome_message;
+            };
+
+            get '/:post_id' =&gt; sub {
+                # do the work here or delegate to a specialised class
+                my $post_id = param('post_id');
+
+                # check if the ID is valid and do something with it
+                # for demo's sake show variables you have access to:
+                return "I was called with board: $board, post id: $post_id"
+                     . " and have access to the welcome_message variable: $welcome_message";
+            };
+        };
+    }
+}</pre>
+
+<p>Then in your app.pl:</p>
+<pre class="prettyprint">#!/usr/bin/env perl
+
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+
+use beethoven;
+beethoven-&gt;setup_routes;
+beethoven-&gt;to_app;</pre>
+
+<p>Calling setup_routes essentially materialises the routes beforehand based on
+what <code>get_boards</code> returns. If the user enters a board that doesn't exist, it
+will automatically get picked up by Dancer's default handling of missing
+routes and a 404 error will be returned to the user.</p>
+<p>This approach works well if the number of boards is small. Say in hundreds,
+or may be in thousands, but not in hundreds of thousands. After a certain
+point the Dancer process will grow too big in memory. That might or might
+not be a problem depending on your infrastructure.</p>
+<p>Also if boards are not fixed and are created all the time then this approach
+will not work very well as it would required an app restart to pick up all
+the new boards (or for that matter changes to the URL slugs for the existing
+boards, or deletions).</p>
+<h2><a name="the_hook"></a>The hook</h2>
+
+<p>There is another way that allows us to dynamically check for a board rather
+than materialising all our routes up front. The basic idea is to combine
+<b><code>prefix</code></b> with a <b><code>before</code></b> handler. Let's put together some
+code to illustrate this idea:</p>
+<pre class="prettyprint">hook before =&gt; sub {
+    my $board = param('board');
+
+    if ($board &amp;&amp; board_is_valid($board)) {
+        var board =&gt; $board;
+    }
+};
+
+prefix '/:board' =&gt; sub {
+
+    get '/' =&gt; sub {
+        # show a list of all the posts under the board $board
+        # for demo's sake simply return the welcome message
+        my $board = var('board') or pass;
+
+        my $welcome_message = "Welcome to the group for discussing: $board";
+        return $welcome_message;
+    };
+
+    get '/:post_id' =&gt; sub {
+        my $board = var('board') or pass;
+
+        # do the work here
+        my $post_id = param('post_id');
+
+        # check if the ID is valid and do something with it
+        # for demo's sake show variables you have access to:
+        return "I was called with board: $board, post id: $post_id";
+    };
+};
+
+sub board_is_valid {
+    my $board = shift;
+
+    return if not defined $board;
+
+    # in a real life application we would check this against a table in
+    # a database or through a backend service. for the sake of
+    # simplicity, let's just check against a hardcoded list
+    my %valid_boards = map { $_ =&gt; 1 }
+                       qw(string-quartets symphonies piano-sonatas piano-trios);
+
+    return defined $valid_boards{$board};
+}</pre>
+
+<p>This time, our <code>before</code> handler will catch the request first. It sets up
+the <code>board</code> variable using <b><code>var</code></b> that is automatically passed around
+to each handler. The handler first checks if the <code>board</code> variable exists
+and if it doesn't, it simply defers the handling to the Dancer's default
+route handling. Since no other routes to handle the <code>:board</code> exist, this
+results in a 404.</p>
+<p>While it alleviates the need to build all possible routes
+up front, the one downside to this approach is having to check for the
+presence of <code>board</code> variable in each handler. On the positive side, you can
+dynamically add boards without restarting the application for them to be
+available.</p>
+<h2><a name="even_more_ways"></a>Even more ways</h2>
+
+<p>Additional approaches for the dynamic route handling problem exist. Most
+notably, another approach was recently documented by Yanick Champoux uses
+<a href="http://www.perladvent.org/2013/2013-12-02.html">megasplat</a> to produce
+<a href="http://techblog.babyl.ca/entry/chained-dancer">chained actions</a>.</p>
+<h2><a name="minimum_version"></a>Minimum version</h2>
+
+<p>This article requires <a href="https://metacpan.org/module/Dancer2">Dancer2</a> version 0.159000.</p>
+<p><i>(hopefully released soon enough.)</i></p>
+<h2><a name="conclusion"></a>Conclusion</h2>
+
+<p>Dancer has many methods of producing dynamic routes (or "chained actions") and
+each of them has its benefits and drawbacks.</p>
+<h2><a name="author"></a>Author</h2>
+
+<p>This article has been written by Deepak Gulati for the Perl
+Dancer Advent Calendar 2014.</p>
+<h2><a name="copyright"></a>Copyright</h2>
+
+<p>Creative Commons Deepak Gulati 2014.</p>
+</div>
+
+ <div id="disqus_thread"></div>
+    <script type="text/javascript">
+        /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+        var disqus_shortname = 'danceradvent'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function() {
+            var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+            dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+
+
+
+</div>
+
+
+
+<div id="footer">
+Powered by the  
+<a href="http://perldancer.org/" title="Perl Dancer - Perl web framework">
+Dancer Perl web framework</a>
+</div>
+</div>
+
+
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-25174467-2']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+</body>
+</html>

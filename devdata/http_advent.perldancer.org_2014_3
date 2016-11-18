@@ -1,0 +1,250 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+<title> Migrating to Dancer2 | PerlDancer Advent Calendar</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="alternate" type="application/rss+xml" title="All Articles " href="/feed/2014" /> 
+
+
+<!-- Grab Google CDN's jQuery. fall back to local if necessary -->
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js" type="text/javascript"></script>
+<script type="text/javascript">/* <![CDATA[ */
+    !window.jQuery && document.write('<script src="/javascripts/jquery.js"><\/script>')
+/* ]]> */</script>
+
+<!-- Prettyfy -->
+<link href="/css/prettify.css" type="text/css" rel="stylesheet" />
+<script type="text/javascript" src="/javascripts/prettify.js"></script>
+
+</head>
+<body onload="prettyPrint()">
+<div id="page">
+
+<div id="sidebar">
+<a href="/" class="homelink">Dancer Advent Calendar</a><br />
+
+<p>
+The PerlDancer Advent Calendar is a community-driven project that aims 
+to showcase the Dancer Perl web framework.
+</p>
+
+<p>
+Each day of December until Christmas, one article about Dancer. Stay tuned for new moves!
+</p>
+
+<ul id="sidebar-items">
+<li>
+    <h3>About Dancer</h3>
+    <ul class="links">
+        <li><a href="http://www.perldancer.org/">Dancer homepage</a></li>
+        <li><a href="http://twitter.com/PerlDancer">Official Twitter</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer">Dancer on GitHub</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer2">Dancer 2 on GitHub</a></li>
+        <li><a class="feed" href="/feed/2014">RSS</a></li>
+    </ul>
+</li>
+</ul>
+</div>
+
+
+<div id="content">
+<div class="pod-document"><h1><a name="migrating_to_dancer2"></a>Migrating to Dancer2</h1>
+
+<p>A question we often get asked when we promote <a href="https://metacpan.org/module/Dancer2">Dancer2</a> is <i>"How do I migrate
+my code to Dancer2?"</i></p>
+<p>There had been some changes between the versions - big enough to require an
+entirely new namespace. What were they? How do we migrate?</p>
+<h2><a name="changing_the_namespace"></a>Changing the namespace</h2>
+
+<p>The reason we changed the namespace wasn't really due much to the change a
+user will necessarily see, but more due to the incredible difference in core
+architecture, and CPAN's inability to maintain two running versions in the
+same namespace, as mentioned in the
+<a href="http://advent.perldancer.org/2014/2">previous article</a>.</p>
+<p><a href="https://metacpan.org/module/Dancer2">Dancer2</a> is actually a complete rewrite. It had small portions of the code
+moved and some of the documentation was copied over, but mainly it is
+completely restructured.</p>
+<p>It no longer relies on reinventing the wheel as much. Users simply didn't care
+about installing another module or two or three or even more. At the same
+time, enough tools we written to still allow you to get away with not being
+able to install dependencies, so the entire problem became moot.</p>
+<p>For example, Having <a href="https://metacpan.org/module/local::lib">local::lib</a> allows you to install an entire module tree
+in a local user's directory (not requiring administrative privileges). Having
+<a href="https://metacpan.org/module/fatpacker">fatpacker</a> allows you to fatpack your entire Dancer2 application in a single
+file. Having <a href="https://metacpan.org/module/Carton">Carton</a> allows you to package it all nicely. Having <a href="https://metacpan.org/module/Pinto">Pinto</a>
+allows you to set up an entire personal CPAN for your company. Things are
+much easier.</p>
+<p>(Watch for additional articles that cover <a href="https://metacpan.org/module/fatpacker">fatpacker</a> and <a href="https://metacpan.org/module/Carton">Carton</a> in this
+advent calendar.)</p>
+<p>Additionally, we wanted the ability to make core changes without breaking a lot
+of old applications. This doesn't mean a migration is difficult though. Having
+two different namespaces allows you to keep your current Dancer 1 applications
+running alongside your new Dancer2 applications and make it simple to migrate
+when <b>you</b> are ready.</p>
+<p>Following are a few tips for migrating your applications to Dancer2, finishing
+with one great resource for it at the end.</p>
+<h2><a name="it_s_all_about_the_plack"></a>It's all about the Plack</h2>
+
+<p>Dancer originally wasn't built for <a href="https://metacpan.org/module/Plack">Plack</a>. When Plack came out, Dancer has
+made the necessary changes to accommodate it. However, it wasn't the leading
+spec for Dancer, as it was simply a port of another framework from Ruby.</p>
+<p>Dancer2 took a different approach: Plack leads the way. This led to quite a few
+changes in removing unnecessary code, producing much more correct behavior,
+and providing more deterministic results.</p>
+<p>A few examples:</p>
+<ul>
+<li><a name="item_Each_class_is_an_entire_app"></a><b>Each class is an entire app</b>
+<p>A Dancer App is now every class which consumes <a href="https://metacpan.org/module/Dancer2">Dancer2</a>. This means they
+can each have their own configuration, allowing different engines:</p>
+<pre class="prettyprint">package Admin {
+    use Dancer2;
+    ...
+}
+
+package Public {
+    use Dancer2;
+    ...
+}</pre>
+
+<p>Now <code>Admin</code> and <code>Public</code> are fully independent applications. They
+will not share any resources and will be able to have different engines
+(template, session, serializer, logger) which will not be shared. No more
+worrying about globals.</p>
+</li>
+<li><a name="item_Removing___script__import_key_for_plackup"></a><b>Removing ':script' import key for plackup</b>
+<p>Dancer 1 had the <code>:script</code> import key which would read your command line
+arguments to change how the Dancer server would run.</p>
+<p>Since <a href="https://metacpan.org/module/Plack">Plack</a> has the <a href="https://metacpan.org/module/plackup">plackup</a> command line tool, it already reads your
+command line arguments. Why make a duplicate effort?</p>
+</li>
+<li><a name="item_Fully_object_oriented"></a><b>Fully object-oriented</b>
+<p>Dancer2 has changed its core substantially to be much more object oriented.
+Now the core is implemented in objects. The DSL layer simply provides an
+interface to those objects.</p>
+<p>This makes everything much easier to compose and test.</p>
+</li>
+<li><a name="item_HTTP__Server__Simple_replaced_with_HTTP__Server__PSGI"></a><b>HTTP::Server::Simple replaced with HTTP::Server::PSGI</b>
+<p>Originally Dancer would use <a href="https://metacpan.org/module/HTTP::Server::Simple">HTTP::Server::Simple</a> which supported PSGI, but
+it was a pain to use, since it had issues we needed to patch and provided a
+dependency we weren't happy about.</p>
+<p>As it happens, <a href="https://metacpan.org/module/Plack">Plack</a> comes with a great development server called
+<a href="https://metacpan.org/module/HTTP::Server::PSGI">HTTP::Server::PSGI</a>. Since we're building on Plack, we might as well make use
+of it. This is why Dancer2 uses it instead.</p>
+</li>
+</ul>
+<h2><a name="migration_in_a_nutshell"></a>Migration in a nutshell</h2>
+
+<p>Okay, but putting all of that aside, how do I migrate?</p>
+<p>Well, it really depends on what you do with your application, but here are our
+main migration tips:</p>
+<ul>
+<li><a name="item_Clean_importing"></a><b>Clean importing</b>
+<p>All of the importing keywords are unnecessary now, except for <code>appname</code>,
+explained below.</p>
+</li>
+<li><a name="item_Separate_serialized_routes"></a><b>Separate serialized routes</b>
+<p>Routes that require serializers should be separated to their own Dancer2 app,
+since serializers will try to deserialize all input and serialize all output
+in every route in their app scope.</p>
+</li>
+<li><a name="item_DSL_keyword_changes"></a><b>DSL keyword changes</b>
+<p>We tried to change very little of the DSL. <code>load</code> and <code>param_array</code> no
+longer exist, and <code>session</code> can also provide the session object, not just
+retrieve and set values for keys.</p>
+</li>
+<li><a name="item_Applications_are_self_dispatching_units"></a><b>Applications are self-dispatching units</b>
+<p>As explained above, any module that uses <code>Dancer2</code> becomes a Dancer
+Application, which creates a separated dispatcher only for the routes created
+under that module namespace.</p>
+<p>The application's engines will not be shared with others - an issue that
+pained experienced developers of Dancer 1.</p>
+<p>If you want to compose multiple Dancer Applications to create a single web
+application, you can use <a href="https://metacpan.org/module/Plack::Builder">Plack::Builder</a> and <code>to_app</code>. Stay tuned for
+an article explaining this exact situation.</p>
+</li>
+<li><a name="item_Multiple_packages_for_a_single_app"></a><b>Multiple packages for a single app</b>
+<p>Allowing multiple packages to create a single Dancer Application is also
+possible using the <code>appname</code> feature. This will also appear in an upcoming
+article.</p>
+</li>
+</ul>
+<h2><a name="you_said_something_about_a_great_resource"></a>You said something about a great resource?</h2>
+
+<p>Oh yes!</p>
+<p>Writing down all the migration changes between Dancer 1 and Dancer2 would be
+too much. Plus, who would check this article after a while again to see if it
+was updated? No one, that's who!</p>
+<p>Instead, we've compiled a list (with the kind help of Snigdha Dagar) of all
+of these changes under <a href="https://metacpan.org/module/Dancer2::Manual::Migration">Dancer2::Manual::Migration</a>.</p>
+<p>If you're interested in migrating your applications to Dancer2, or would like
+to write a new application and care to know what the differences are, you should
+consult it.</p>
+<p>Of course we welcome any changes and improvements to this document as it is a
+living breathing document (which we hope will not attack us during Halloween),
+so feel free to submit pull requests, send comments on the mailing list, or
+stop by the IRC channel.</p>
+<h2><a name="conclusion"></a>Conclusion</h2>
+
+<p>Dancer2 has a few changes that promote much more consistent and deterministic
+web application development. It reduces the considerations we have to take
+into account while providing much more correct implementations for various
+pieces.</p>
+<p>Our new Migration Document helps new-comers and seasoned developers keep
+up-to-date with the changes we've done and how it might affect their future
+code.</p>
+<h2><a name="author"></a>Author</h2>
+
+<p>This article has been written by Sawyer X and Mickey Nasriachi for the Perl
+Dancer Advent Calendar 2014.</p>
+<h2><a name="copyright"></a>Copyright</h2>
+
+<p>No copyright retained. Enjoy.</p>
+<p>2014 // Sawyer X <code>&lt;xsawyerx@cpan.org&gt;</code></p>
+</div>
+
+ <div id="disqus_thread"></div>
+    <script type="text/javascript">
+        /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+        var disqus_shortname = 'danceradvent'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function() {
+            var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+            dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+
+
+
+</div>
+
+
+
+<div id="footer">
+Powered by the  
+<a href="http://perldancer.org/" title="Perl Dancer - Perl web framework">
+Dancer Perl web framework</a>
+</div>
+</div>
+
+
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-25174467-2']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+</body>
+</html>

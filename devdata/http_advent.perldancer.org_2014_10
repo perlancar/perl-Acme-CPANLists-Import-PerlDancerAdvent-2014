@@ -1,0 +1,218 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+<title> What's in an appname? | PerlDancer Advent Calendar</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="alternate" type="application/rss+xml" title="All Articles " href="/feed/2014" /> 
+
+
+<!-- Grab Google CDN's jQuery. fall back to local if necessary -->
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js" type="text/javascript"></script>
+<script type="text/javascript">/* <![CDATA[ */
+    !window.jQuery && document.write('<script src="/javascripts/jquery.js"><\/script>')
+/* ]]> */</script>
+
+<!-- Prettyfy -->
+<link href="/css/prettify.css" type="text/css" rel="stylesheet" />
+<script type="text/javascript" src="/javascripts/prettify.js"></script>
+
+</head>
+<body onload="prettyPrint()">
+<div id="page">
+
+<div id="sidebar">
+<a href="/" class="homelink">Dancer Advent Calendar</a><br />
+
+<p>
+The PerlDancer Advent Calendar is a community-driven project that aims 
+to showcase the Dancer Perl web framework.
+</p>
+
+<p>
+Each day of December until Christmas, one article about Dancer. Stay tuned for new moves!
+</p>
+
+<ul id="sidebar-items">
+<li>
+    <h3>About Dancer</h3>
+    <ul class="links">
+        <li><a href="http://www.perldancer.org/">Dancer homepage</a></li>
+        <li><a href="http://twitter.com/PerlDancer">Official Twitter</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer">Dancer on GitHub</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer2">Dancer 2 on GitHub</a></li>
+        <li><a class="feed" href="/feed/2014">RSS</a></li>
+    </ul>
+</li>
+</ul>
+</div>
+
+
+<div id="content">
+<div class="pod-document"><h1><a name="what_s_in_an_appname"></a>What's in an appname?</h1>
+
+<h2><a name="new_feature_in_dancer2__appname"></a>New feature in Dancer2: appname</h2>
+
+<p>One change we absolutely love is the <code>appname</code> import option, introduced in
+<a href="https://metacpan.org/module/Dancer2">Dancer2</a> 0.150000.</p>
+<h2><a name="what_s_a_dancer_app_again"></a>What's a Dancer App again?</h2>
+
+<p>It's worth repeating the explanation of what a Dancer2 application is, since
+this might confuse a developer with a <a href="https://metacpan.org/module/PSGI">PSGI</a> application.</p>
+<p>A Dancer2 App is simply a package containing routes and engines which receives
+a request and returns a response. The engines are not mandatory, but might be
+a template, a session, a logger, and a serializer.</p>
+<p>A PSGI application is a code reference which receives a request as a hash of
+environment variables (from a server using a <a href="https://metacpan.org/module/Plack">Plack</a> handler) and returns a
+proper PSGI response which could be an array reference or a code reference.</p>
+<h2><a name="too_many_apps_"></a>Too many apps!</h2>
+
+<p>As soon as you import <a href="https://metacpan.org/module/Dancer2">Dancer2</a> (by calling <code>use Dancer2</code>), you create a
+Dancer2 App. It will use your class name (defined by either the <code>package</code>
+function in Perl or the default in Perl: <code>main</code>) to define the Dancer2 App
+name. This is how Dancer2 will recognize your application.</p>
+<p>This introduces an interesting situation. If you wish to separate your App
+to multiple files, you're actually creating multiple applications.</p>
+<h2><a name="so_what"></a>So what?</h2>
+
+<p>This means that any engine defined in an application, because the application
+is a complete separate scope, will not be available to a different application:</p>
+<pre class="prettyprint">package MyApp::User {
+    use Dancer2;
+    set serializer =&gt; 'JSON';
+    get '/view' =&gt; sub {...};
+}
+
+package MyApp::User::Edit {
+    use Dancer2;
+    get '/edit' =&gt; sub {...};
+}</pre>
+
+<p>These are two different Dancer2 Apps. They have different scopes, contexts,
+and thus different engines. While <code>MyApp::User</code> has a serializer (the <a href="https://metacpan.org/module/JSON">JSON</a>
+one) defined, <code>MyApp::User::Edit</code> will not have that configuration.</p>
+<p>If you want the path <code>/edit</code> to have a serializer also, you will need to
+define one for <code>MyApp::User::Edit</code>. This is not just tedious, but when you
+mix this with the <code>to_app</code> method (described in the previous article, you
+have a problem:</p>
+<pre class="prettyprint">use MyApp::User;
+use MyApp::User::Edit;
+
+use Plack::Builder;
+
+builder {
+    mount '/' =&gt; MyApp::User-&gt;to_app;
+    # what about MyApp::User::Edit ???
+};</pre>
+
+<p>If <code>/</code> is taken by <code>MyApp::User</code>, where do we put <code>MyApp::User::Edit</code>?</p>
+<p>We don't actually wish <code>MyApp::User::Edit</code> to be another application, we just
+want it to be a comfortable extension to the regular app, providing additional
+routes that are part of the same already-existing application.</p>
+<p>While you might think loading <code>MyApp::User::Edit</code> within <code>MyApp::User</code> will
+help to just extend it, that is not the case. It will still fail.</p>
+<p><code>appname</code> to the rescue!</p>
+<h2><a name="appname_saves_the_day"></a>appname saves the day</h2>
+
+<p>By using the import option <code>appname</code>, we can ask Dancer2 to extend an App
+without creating a new one:</p>
+<pre class="prettyprint">package MyApp::User {
+    use Dancer2;
+    set serializer =&gt; 'JSON';
+    get '/view' =&gt; sub {...};
+}
+
+package MyApp::User::Edit {
+    use Dancer2 appname =&gt; 'MyApp::User'; # extending MyApp::User
+    get '/edit' =&gt; sub {...};
+}</pre>
+
+<p>Now, by using <code>appname</code> when importing, we can ask this App to simply extend
+an existing one (or one will be created if it does not exist yet) and add
+the routing there.</p>
+<p>The serializer will be available, it will have the same configuration, and it
+will even represent all of the routes with the same internal application
+object.</p>
+<pre class="prettyprint"># app.pl
+use MyApp::User;
+use MyApp::User::Edit;
+
+# single application composed of routes provided in multiple files
+MyApp::User-&gt;to_app;</pre>
+
+<p>Usually we would load classes that contain additional routes inside the
+original class they extend:</p>
+<pre class="prettyprint">package MyApp::User {
+    use Dancer2;
+    use MyApp::User::Edit;
+    set serializer =&gt; 'JSON';
+    ...
+}</pre>
+
+<p>This way we only need to load one when we create an app:</p>
+<pre class="prettyprint"># app.pl:
+use MyApp::User;
+MyApp::User-&gt;to_app;</pre>
+
+<h2><a name="conclusion"></a>Conclusion</h2>
+
+<p>The import option <code>appname</code> allows you to seamlessly extend Dancer2 Apps
+without creating unnecessary additional applications or repeat any definitions.</p>
+<p>This allows you to spread your application routes across multiple files and
+allow ease of mind when developing it, and accommodate multiple developers
+working on the same codebase.</p>
+<h2><a name="author"></a>Author</h2>
+
+<p>This article has been written by Sawyer X for the Perl
+Dancer Advent Calendar 2014.</p>
+<h2><a name="copyright"></a>Copyright</h2>
+
+<p>No copyright retained. Enjoy.</p>
+<p>2014 // Sawyer X <code>&lt;xsawyerx@cpan.org&gt;</code></p>
+</div>
+
+ <div id="disqus_thread"></div>
+    <script type="text/javascript">
+        /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+        var disqus_shortname = 'danceradvent'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function() {
+            var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+            dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+
+
+
+</div>
+
+
+
+<div id="footer">
+Powered by the  
+<a href="http://perldancer.org/" title="Perl Dancer - Perl web framework">
+Dancer Perl web framework</a>
+</div>
+</div>
+
+
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-25174467-2']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+</body>
+</html>

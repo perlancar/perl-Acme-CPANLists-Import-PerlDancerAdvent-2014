@@ -1,0 +1,163 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+<title> Sweetening the test suite | PerlDancer Advent Calendar</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="alternate" type="application/rss+xml" title="All Articles " href="/feed/2014" /> 
+
+
+<!-- Grab Google CDN's jQuery. fall back to local if necessary -->
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js" type="text/javascript"></script>
+<script type="text/javascript">/* <![CDATA[ */
+    !window.jQuery && document.write('<script src="/javascripts/jquery.js"><\/script>')
+/* ]]> */</script>
+
+<!-- Prettyfy -->
+<link href="/css/prettify.css" type="text/css" rel="stylesheet" />
+<script type="text/javascript" src="/javascripts/prettify.js"></script>
+
+</head>
+<body onload="prettyPrint()">
+<div id="page">
+
+<div id="sidebar">
+<a href="/" class="homelink">Dancer Advent Calendar</a><br />
+
+<p>
+The PerlDancer Advent Calendar is a community-driven project that aims 
+to showcase the Dancer Perl web framework.
+</p>
+
+<p>
+Each day of December until Christmas, one article about Dancer. Stay tuned for new moves!
+</p>
+
+<ul id="sidebar-items">
+<li>
+    <h3>About Dancer</h3>
+    <ul class="links">
+        <li><a href="http://www.perldancer.org/">Dancer homepage</a></li>
+        <li><a href="http://twitter.com/PerlDancer">Official Twitter</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer">Dancer on GitHub</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer2">Dancer 2 on GitHub</a></li>
+        <li><a class="feed" href="/feed/2014">RSS</a></li>
+    </ul>
+</li>
+</ul>
+</div>
+
+
+<div id="content">
+<div class="pod-document"><h1><a name="sweetening_the_test_suite"></a>Sweetening the test suite</h1>
+
+<p>The testing suite of a project is an important component, allowing users and
+developers to maintain trust in the code. Having an organized testing suite
+makes it easier for developers to add new tests, improve existing tests, and
+make sure tests are evenly covering the variety of code from all of its
+angles, as well as making it easier for contributors to help out.</p>
+<h2><a name="the_sweet_suite"></a>The sweet suite</h2>
+
+<p>While mayhem ruled the testing suite of Dancer (both version 1 and 2), we've
+recently started rearranging it in order to handle the various situations our
+code works under.</p>
+<p>Here's the new structure:</p>
+<h3><a name="t_classes_"></a>t/classes/</h3>
+
+<p>The main component of the testing suite are the classes. In <a href="https://metacpan.org/module/Dancer2">Dancer2</a> all the
+DSL implementation is built on top of core classes. This allows us to
+decouple the keywords the user uses and their implementation.</p>
+<p>Under the <i>t/classes/</i> we run tests for classes only. This should not run web
+requests, understand the web environment, or anything of the sort. Some
+exceptions may apply, but we try to minimize those.</p>
+<p>Each class has a directory for itself, allowing you to quick find it, and add
+tests to it. Each method gets its own test file. We test roles as well, of
+course. In each directory we can provide static files fo test various
+scenarios.</p>
+<h3><a name="t_dsl_"></a>t/dsl/</h3>
+
+<p>The user-visible interface of the Dancer web framework is the DSL, which are
+those keywords we use to define routing.</p>
+<p>The DSL is tested under the <i>t/dsl/</i> directory. Inside it each DSL keyword
+has its own file. Keywords requiring more than a single test, or requiring
+static files (such as sample configuration files), receive their own
+directory.</p>
+<p>We're still porting the old DSL keywords into clean tests inside the
+<i>t/dsl/</i> directory, which means this directory is still relatively small
+and most of the DSL tests are strewn across the general <i>t/</i> directory.</p>
+<p>We wouldn't say no to any help offered. :)</p>
+<h3><a name="t_issues_"></a>t/issues/</h3>
+
+<p>Regression tests offer a test which isn't covered by the above described
+categories. We use regression tests to check specific situations, rather than
+code paths.</p>
+<p>Since these situations arise in tickets (and tickets can always be opened
+for them if not), we created a directory holding all of these tests, sorted
+by the tracker and the ticket ID in that tracker.</p>
+<p>Often times a good way to handle an issue is to provide a test, which
+can then allow verifying it was fixed.</p>
+<p>For example, we have <i>t/issues/gh-723.t</i> to make sure that scenario doesn't
+pop up again as a bug.</p>
+<h2><a name="conclusion"></a>Conclusion</h2>
+
+<p>Nowadays when we want to play with tests, we already know where they go and
+how to write them. Now you do too, which makes it possible for you to write up
+some tests when providing a fix or a feature, or when you just want to improve
+the testing coverage.</p>
+<p>Consistency in the test suite is absolutely vital in order to
+continually improve the testing coverage and make sense of the testing code.</p>
+<h2><a name="author"></a>Author</h2>
+
+<p>This article has been written by Sawyer X for the Perl
+Dancer Advent Calendar 2014.</p>
+<h2><a name="copyright"></a>Copyright</h2>
+
+<p>No copyright retained. Enjoy.</p>
+<p>2014 // Sawyer X <code>&lt;xsawyerx@cpan.org&gt;</code></p>
+</div>
+
+ <div id="disqus_thread"></div>
+    <script type="text/javascript">
+        /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+        var disqus_shortname = 'danceradvent'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function() {
+            var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+            dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+
+
+
+</div>
+
+
+
+<div id="footer">
+Powered by the  
+<a href="http://perldancer.org/" title="Perl Dancer - Perl web framework">
+Dancer Perl web framework</a>
+</div>
+</div>
+
+
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-25174467-2']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+</body>
+</html>

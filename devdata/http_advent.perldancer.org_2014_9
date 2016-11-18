@@ -1,0 +1,242 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+<title> New feature in Dancer2: to_app | PerlDancer Advent Calendar</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="alternate" type="application/rss+xml" title="All Articles " href="/feed/2014" /> 
+
+
+<!-- Grab Google CDN's jQuery. fall back to local if necessary -->
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js" type="text/javascript"></script>
+<script type="text/javascript">/* <![CDATA[ */
+    !window.jQuery && document.write('<script src="/javascripts/jquery.js"><\/script>')
+/* ]]> */</script>
+
+<!-- Prettyfy -->
+<link href="/css/prettify.css" type="text/css" rel="stylesheet" />
+<script type="text/javascript" src="/javascripts/prettify.js"></script>
+
+</head>
+<body onload="prettyPrint()">
+<div id="page">
+
+<div id="sidebar">
+<a href="/" class="homelink">Dancer Advent Calendar</a><br />
+
+<p>
+The PerlDancer Advent Calendar is a community-driven project that aims 
+to showcase the Dancer Perl web framework.
+</p>
+
+<p>
+Each day of December until Christmas, one article about Dancer. Stay tuned for new moves!
+</p>
+
+<ul id="sidebar-items">
+<li>
+    <h3>About Dancer</h3>
+    <ul class="links">
+        <li><a href="http://www.perldancer.org/">Dancer homepage</a></li>
+        <li><a href="http://twitter.com/PerlDancer">Official Twitter</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer">Dancer on GitHub</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer2">Dancer 2 on GitHub</a></li>
+        <li><a class="feed" href="/feed/2014">RSS</a></li>
+    </ul>
+</li>
+</ul>
+</div>
+
+
+<div id="content">
+<div class="pod-document"><h1><a name="new_feature_in_dancer2__to_app"></a>New feature in Dancer2: to_app</h1>
+
+<p><a href="https://metacpan.org/module/Dancer2">Dancer2</a> 0.151000 has made a major change to the dispatching mechanism and
+provided a new method: <code>to_app</code>. What was the change, why was this keyword
+introduced, and why should we use it now?</p>
+<h2><a name="the_way_things_were"></a>The way things were</h2>
+
+<p>The original dispatching mechanism in Dancer2 would take all of your Dancer2
+applications and wrap them with a loop that tries to match their routes. Once
+you know that a <i>Dancer App</i> is basically a unit of routes with its own set
+of engines (such as a template, a session storage, a logger, and a serializer -
+not all required), you might begin to see a problem here.</p>
+<p>If you have two applications (meaning two packages that have <code>use Dancer2</code> in
+them) called <code>MyApp::A</code> and <code>MyApp::B</code>, and you call the <code>dance</code> keyword
+to create a full fledged PSGI application from them, Dancer will try to match
+a request against each one. It will start with <code>MyApp::A</code> and then <code>MyApp::B</code>.</p>
+<p><i>"Is it always in this order?"</i>, you might ask. Actually, it isn't. Since it
+is internally stored in an array (which is at least deterministic, right?), it
+is actually checked in the order in which you loaded them into memory.</p>
+<p>If your handler is:</p>
+<pre class="prettyprint">use MyApp::B;
+use MyApp::A;
+use Dancer2;
+
+dance;</pre>
+
+<p>It will now check <code>MyApp::B</code> first and <code>MyApp::A</code> last.</p>
+<p>In fact, it will check <code>MyApp::B</code> first, <code>MyApp::A</code> second, and the last
+will be whatever package this snippet of code you saw is in - in case it
+has any routes configured in it before <code>dance</code> was called.</p>
+<h2><a name="why_is_this_bad"></a>Why is this bad?</h2>
+
+<p>So you might be wondering, <i>"Okay, there's an order issue here, but why
+should I care? Eventually it reaches my route and works fine."</i></p>
+<p>You are absolutely right - in most cases. However, if both applications have
+the same route defined, you won't necessarily know which route was actually
+hit.</p>
+<p>If you're preloading applications into memory (which is a good idea in large
+infrastructures), your resulting application might hit someone else's route
+instead.</p>
+<p>If you're using the <b>AutoPage</b> feature, you might snag on a different app's
+template. If one app has a <b>Serializer</b> defined, you might return serialized
+output. If different apps have a different <b>Session</b> engine, that's even
+worse. That's tantamount to a security risk - although we try to minimize that
+risk internally by moving session objects around so you don't hit a mistaken
+session.</p>
+<h2><a name="what_can_we_do"></a>What can we do?</h2>
+
+<p>The first change we made, back in Dancer2 0.150000, was to call the
+<code>psgi_app</code> keyword with specific application names, either by class name or
+by a regular expression. This allowed you to create PSGI applications from
+specific Dancer Apps:</p>
+<pre class="prettyprint"># preload everything
+use MyApp::A;
+use MyApp::B;
+use MyApp::C;
+use MyApp::D;
+use MyApp::E;
+
+# an app for A, B, C
+my $abc_app = Dancer2-&gt;psgi_app([ qr{^MyApp::[ABC]$} ]);
+
+# an app for D, E
+my $d_app = Dancer2-&gt;psgi_app([ 'MyApp::D', 'MyApp::E' ]);</pre>
+
+<p>This allows us to load into memory all the applications we have and then
+create a PSGI application from only some of them.</p>
+<p>Here is another example which also joins multiple apps into a single,
+bigger PSGI app with <a href="https://metacpan.org/module/Plack::Builder">Plack::Builder</a>:</p>
+<pre class="prettyprint">use MyApp::A;
+use MyApp::B;
+use MyApp::C;
+
+use Plack::Builder;
+
+builder {
+    mount '/'        =&gt; Dancer2-&gt;psgi_app(['MyApp::A']);
+    mount '/special' =&gt; Dancer2-&gt;psgi_app([ qr{^MyApp::[BC]$} ]);
+};</pre>
+
+<p>This was a major improvement, but it still didn't address the core problem.</p>
+<h2><a name="fine__i_ll_bite__what_was_the_core_problem"></a>Fine. I'll bite. What was the core problem?</h2>
+
+<p>I'm glad you asked!</p>
+<p>The code problem was that the dispatching was the duty of the core dispatcher
+object (an instance of <a href="https://metacpan.org/module/Dancer2::Core::Dispatcher">Dancer2::Core::Dispatcher</a>) instead of the app object
+itself (<a href="https://metacpan.org/module/Dancer2::Core::App">Dancer2::Core::App</a>). Since the routing should have been done in the
+app object (the lowest context for engines and routes), it made sense to move
+it there instead of the dispatcher object.</p>
+<p>We've done so in Dancer2 0.151000, a version later.</p>
+<p>While retaining the old behavior of the <code>psgi_app</code> keyword, we introduced
+one major addition: the <code>to_app</code> class method.</p>
+<h2><a name="to_app_or_not_to_app"></a>to_app or not to_app</h2>
+
+<p>While perhaps not the same question Shakespeare asked, it is a noble one
+just the same.</p>
+<p>The <code>to_app</code> method creates a PSGI app from a single application - not from
+all of your applications or a PSGI app that is restricted to specific ones.</p>
+<p>This means you can now treat a Dancer2 App as its own unit that can be
+composed into any path you like.</p>
+<p>The following:</p>
+<pre class="prettyprint">MyApp-&gt;to_app;</pre>
+
+<p>gives the same behavior to the user as:</p>
+<pre class="prettyprint">Dancer2-&gt;psgi_app(['MyApp']);</pre>
+
+<p>except it does it using quite a few workarounds.</p>
+<p>Instead of using the awkward <code>Dancer2-&gt;psgi_app()</code>, which
+provides the same behavior as <code>dance()</code>, you could use <code>to_app</code>. This
+won't require calling <code>use Dancer2</code> in your handler, since it's a method
+on your Dancer2 application class.</p>
+<p>When you have multiple Dancer2 applications, you can compose them together
+using either <a href="https://metacpan.org/module/Plack::App::URLMap">Plack::App::URLMap</a> or the wrapper syntax for it available in
+<a href="https://metacpan.org/module/Plack::Builder">Plack::Builder</a>:</p>
+<pre class="prettyprint">use MyApp::Main;
+use MyApp::Admin;
+
+builder {
+    mount '/'      =&gt; MyApp::Main-&gt;to_app;
+    mount '/admin' =&gt; MyApp::Admin-&gt;to_app;
+};</pre>
+
+<p>The effect of the mounting is that these applications will be completely
+separate and <a href="https://metacpan.org/module/Plack::Builder">Plack::Builder</a> will assure only the appropriate application
+handles a given request.</p>
+<p>Instead of creating a loop around all of them, you provide each app with its
+own dispatching mechanism, in charge only for the routes defined inside it.</p>
+<p>Another effect of mounting is that the mounting point (<code>/admin</code>, for example)
+is stripped from the path the application needs to match. This means that
+<code>MyApp::Admin</code> doesn't need to define <code>/admin/view</code>, but just <code>/view</code>.</p>
+<p>This has become such a useful and important feature that if you try to call
+<code>psgi_app</code> on an application (instead of on <code>Dancer2</code> or
+<code>Dancer2-&gt;runner</code>, it will effectively call <code>to_app</code> underneath.</p>
+<h2><a name="conclusion"></a>Conclusion</h2>
+
+<p>In short, yes. We <b>do</b> want <code>to_app</code>. :)</p>
+<h2><a name="author"></a>Author</h2>
+
+<p>This article has been written by Sawyer X for the Perl
+Dancer Advent Calendar 2014.</p>
+<h2><a name="copyright"></a>Copyright</h2>
+
+<p>No copyright retained. Enjoy.</p>
+<p>2014 // Sawyer X <code>&lt;xsawyerx@cpan.org&gt;</code></p>
+</div>
+
+ <div id="disqus_thread"></div>
+    <script type="text/javascript">
+        /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+        var disqus_shortname = 'danceradvent'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function() {
+            var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+            dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+
+
+
+</div>
+
+
+
+<div id="footer">
+Powered by the  
+<a href="http://perldancer.org/" title="Perl Dancer - Perl web framework">
+Dancer Perl web framework</a>
+</div>
+</div>
+
+
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-25174467-2']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+<title> Writing plugins for Dancer2 | PerlDancer Advent Calendar</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="alternate" type="application/rss+xml" title="All Articles " href="/feed/2014" /> 
+
+
+<!-- Grab Google CDN's jQuery. fall back to local if necessary -->
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js" type="text/javascript"></script>
+<script type="text/javascript">/* <![CDATA[ */
+    !window.jQuery && document.write('<script src="/javascripts/jquery.js"><\/script>')
+/* ]]> */</script>
+
+<!-- Prettyfy -->
+<link href="/css/prettify.css" type="text/css" rel="stylesheet" />
+<script type="text/javascript" src="/javascripts/prettify.js"></script>
+
+</head>
+<body onload="prettyPrint()">
+<div id="page">
+
+<div id="sidebar">
+<a href="/" class="homelink">Dancer Advent Calendar</a><br />
+
+<p>
+The PerlDancer Advent Calendar is a community-driven project that aims 
+to showcase the Dancer Perl web framework.
+</p>
+
+<p>
+Each day of December until Christmas, one article about Dancer. Stay tuned for new moves!
+</p>
+
+<ul id="sidebar-items">
+<li>
+    <h3>About Dancer</h3>
+    <ul class="links">
+        <li><a href="http://www.perldancer.org/">Dancer homepage</a></li>
+        <li><a href="http://twitter.com/PerlDancer">Official Twitter</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer">Dancer on GitHub</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer2">Dancer 2 on GitHub</a></li>
+        <li><a class="feed" href="/feed/2014">RSS</a></li>
+    </ul>
+</li>
+</ul>
+</div>
+
+
+<div id="content">
+<div class="pod-document"><h1><a name="writing_plugins_for_dancer2"></a>Writing plugins for Dancer2</h1>
+
+<p>Plugins provide you with additional keywords to decouple
+predefined behavior to make it easier on you so you won't need to
+implement the same thing over and over again.</p>
+<p>Let me show you how simple it is to write a plugin of your own.</p>
+<p><i>(This explains the current API to plugins. Refer to
+<a href="https://metacpan.org/module/Dancer2::Plugin">Dancer2::Plugin</a> for up-to-date documentation.)</i></p>
+<h2><a name="a_plugin_that_does_nothing__so_far_"></a>A plugin that does nothing (so far)</h2>
+
+<p>All you need to do is use <a href="https://metacpan.org/module/Dancer2::Plugin">Dancer2::Plugin</a> and that will provide
+you with all the keywords you need to write the plugin.</p>
+<pre class="prettyprint">package Dancer2::Plugin::Kitteh;
+use Dancer2::Plugin;
+
+# we do nothing, just like most cats do
+
+register_plugin;
+
+1;</pre>
+
+<h2><a name="introducing_keywords"></a>Introducing keywords</h2>
+
+<p>You can introduce new keywords the application will receive when it
+uses your plugin using the <code>register</code> keyword:</p>
+<pre class="prettyprint">register meow =&gt; sub {
+    my ( $dsl ) = plugin_args(@_);
+    my $app = $dsl-&gt;app;
+};</pre>
+
+<p>This is how we introduce the <code>meow</code> keyword to the user.</p>
+<p>We use <code>plugin_args</code> to make sure we get the plugin arguments. This
+is for compatibility.</p>
+<p>The keyword receives an object which represents the DSL object the
+app is connected to. You can use it in order to access the Dancer2
+core application connected to the user's scope.</p>
+<p>We can also control whether a keyword is <i>app-global</i>, meaning it
+can be called from anywhere in an app or only from a route,
+which means during a request:</p>
+<pre class="prettyprint">register meow =&gt; sub {
+    debug 'Meow!';
+}, { is_global =&gt; 0 };</pre>
+
+<h2><a name="route_decorators"></a>Route decorators</h2>
+
+<p>Some plugins generate routes from other routes, which makes them look
+a little bit like route decorators. Take <a href="https://metacpan.org/module/Dancer2::Plugin::Auth::Tiny">Dancer2::Plugin::Auth::Tiny</a>
+for example:</p>
+<pre class="prettyprint">get '/private' =&gt; needs login =&gt; sub { ... };</pre>
+
+<p>The way it works is by taking the route sub as a parameter and creating
+its own route which calls it. We can do the same.</p>
+<pre class="prettyprint">package Dancer2::Plugin::OnTuesday;
+# ABSTRACT: Make sure a route only works on Tuesday
+use Dancer2::Plugin;
+
+register on_tuesday =&gt; sub {
+    my ( $dsl, $route_sub, @args ) = plugin_args(@_);
+
+    my $day = (localtime)[6];
+    $day == 2 or return pass;
+
+    return $route_sub-&gt;( $dsl, @args );
+};
+
+register_plugin;</pre>
+
+<p>Now we can use this plugin as such:</p>
+<pre class="prettyprint">package MyApp;
+use Dancer2;
+use Dancer2::Plugin::OnTuesday;
+
+get '/' =&gt; on_tuesday =&gt; sub { ... };
+
+# every other day
+get '/' =&gt; sub { ... };</pre>
+
+<h2><a name="reading_the_configuration"></a>Reading the configuration</h2>
+
+<p>While a user can change the configuration using both the configuration file
+and the <code>set</code> keyword, we need a single source for all configuration
+options for our plugin. This is handled automatically using the
+<code>plugin_setting</code> keyword:</p>
+<pre class="prettyprint">register meow =&gt; sub {
+    my $dsl = shift;
+    my $vol = plugin_setting-&gt;{'volume'} || 3;
+};</pre>
+
+<h2><a name="extra_tricks"></a>Extra tricks</h2>
+
+<p>There are a few additional tricks available which weren't covered here,
+such as running code on import, registering additional hooks, and
+executing hooks. They are all documented in <a href="https://metacpan.org/module/Dancer2::Plugin">Dancer2::Plugin</a>.</p>
+<h2><a name="conclusion"></a>Conclusion</h2>
+
+<p>The plugin infrastructure in the upgrade from Dancer 1 to Dancer 2
+has been problematic. We've tried various methods to allow plugins to
+coexist, then to specify how they work, and finally to provide a
+proper shim layer to enable working with both smealessly.</p>
+<p>Unfortunately all of these methods had problems and we resulted in
+separating the plugins. This does not mean that writing a
+plugin for Dancer 2 is difficult. In fact it's fairly simple.</p>
+<p>We're working on making them even more comfortable and remove any
+lingering problems, but as you can see they are already easy to write.</p>
+<h2><a name="author"></a>Author</h2>
+
+<p>This article has been written by Sawyer X for the Perl
+Dancer Advent Calendar 2014.</p>
+<h2><a name="copyright"></a>Copyright</h2>
+
+<p>No copyright retained. Enjoy.</p>
+<p>2014 // Sawyer X <code>&lt;xsawyerx@cpan.org&gt;</code></p>
+</div>
+
+ <div id="disqus_thread"></div>
+    <script type="text/javascript">
+        /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+        var disqus_shortname = 'danceradvent'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function() {
+            var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+            dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+
+
+
+</div>
+
+
+
+<div id="footer">
+Powered by the  
+<a href="http://perldancer.org/" title="Perl Dancer - Perl web framework">
+Dancer Perl web framework</a>
+</div>
+</div>
+
+
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-25174467-2']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+</body>
+</html>

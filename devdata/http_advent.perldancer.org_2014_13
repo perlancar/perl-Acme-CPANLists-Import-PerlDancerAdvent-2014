@@ -1,0 +1,233 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+<title> The test core: How we test in Dancer2 core | PerlDancer Advent Calendar</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="alternate" type="application/rss+xml" title="All Articles " href="/feed/2014" /> 
+
+
+<!-- Grab Google CDN's jQuery. fall back to local if necessary -->
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js" type="text/javascript"></script>
+<script type="text/javascript">/* <![CDATA[ */
+    !window.jQuery && document.write('<script src="/javascripts/jquery.js"><\/script>')
+/* ]]> */</script>
+
+<!-- Prettyfy -->
+<link href="/css/prettify.css" type="text/css" rel="stylesheet" />
+<script type="text/javascript" src="/javascripts/prettify.js"></script>
+
+</head>
+<body onload="prettyPrint()">
+<div id="page">
+
+<div id="sidebar">
+<a href="/" class="homelink">Dancer Advent Calendar</a><br />
+
+<p>
+The PerlDancer Advent Calendar is a community-driven project that aims 
+to showcase the Dancer Perl web framework.
+</p>
+
+<p>
+Each day of December until Christmas, one article about Dancer. Stay tuned for new moves!
+</p>
+
+<ul id="sidebar-items">
+<li>
+    <h3>About Dancer</h3>
+    <ul class="links">
+        <li><a href="http://www.perldancer.org/">Dancer homepage</a></li>
+        <li><a href="http://twitter.com/PerlDancer">Official Twitter</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer">Dancer on GitHub</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer2">Dancer 2 on GitHub</a></li>
+        <li><a class="feed" href="/feed/2014">RSS</a></li>
+    </ul>
+</li>
+</ul>
+</div>
+
+
+<div id="content">
+<div class="pod-document"><h1><a name="the_test_core__how_we_test_in_dancer2_core"></a>The test core: How we test in Dancer2 core</h1>
+
+<p>The Dancer2 core test suite is improving significantly. We have made
+vast changes in how we
+<a href="http://advent.perldancer.org/2014/8">sort our tests</a> and we now use
+<a href="https://metacpan.org/module/Plack::Test">Plack::Test</a> to <a href="http://advent.perldancer.org/12">write tests</a>.</p>
+<p>If you're interested in contributing, we would not only praise you for
+years to come, but also shower you and your family with gifts. But
+before you can contribute tests, it's important you understand our
+practices and conventions when writing tests.</p>
+<h2><a name="basics"></a>Basics</h2>
+
+<p>There are a few guidelines for the tests which we try to maintain
+when writing tests:</p>
+<ul>
+<li><a name="item__code_use_ok__code__for_testing_classes_load"></a><b><code>use_ok</code> for testing classes load</b>
+</li>
+<li><a name="item_Declare_the_number_of_tests"></a><b>Declare the number of tests</b>
+</li>
+<li><a name="item_Use__i_subtests__i__or_code_blocks_for_scoping"></a><b>Use <i>subtests</i> or code blocks for scoping</b>
+</li>
+<li><a name="item_Try_to_reach_as_much_coverage_as_possible"></a><b>Try to reach as much coverage as possible</b>
+</li>
+<li><a name="item_Reduce_convenience_modules_and_don_t_make_them_mandatory"></a><b>Reduce convenience modules and don't make them mandatory</b>
+</li>
+<li><a name="item_Thus__skip_if_those_modules_aren_t_available"></a><b>Thus, skip if those modules aren't available</b>
+</li>
+<li><a name="item_Provide_each_test_with_a_test_name___no_empty_tests"></a><b>Provide each test with a test name - no empty tests</b>
+</li>
+</ul>
+<h2><a name="testing_classes"></a>Testing classes</h2>
+
+<p>The main tests are actually for classes. As
+<a href="http://advent.perldancer.org/2014/8">explained</a>, we store these
+tests in <i>t/classes/</i>, under a directory for each class we test.</p>
+<p>Let's take a look at the <a href="https://metacpan.org/module/Dancer2::Core::Factory">Dancer2::Core::Factory</a> object tests. Since
+it simply creates engine objects and contains only a single method,
+the test is rather simple.</p>
+<p>Boilerplate:</p>
+<pre class="prettyprint">use strict;
+use warnings;
+use Test::More tests =&gt; 5;</pre>
+
+<p>As explained, this is not a fast and hard rule, but we prefer to count
+the number of tests we have, to make sure the test doesn't miss a test
+someone has accidentally put on a condition.</p>
+<p>We test loading:</p>
+<pre class="prettyprint">use_ok('Dancer2::Core::Factory');</pre>
+
+<p>Then we test the object itself:</p>
+<pre class="prettyprint">my $factory = Dancer2::Core::Factory-&gt;new;
+isa_ok( $factory, 'Dancer2::Core::Factory' );
+can_ok( $factory, 'create' );</pre>
+
+<p>You might notice we pick descriptive names. We try to avoid variables
+names <code>$f</code> in our core code as well as in our tests.</p>
+<p>Now we can test the <code>create</code> method, which is actually a class method,
+so holding the factory object is not required. We generally avoid class
+methods, but in this class we're a bit more lax about it:</p>
+<pre class="prettyprint">my $template = Dancer2::Core::Factory-&gt;create(
+    'template', 'template_toolkit', layout =&gt; 'mylayout'
+);
+
+isa_ok( $template, 'Dancer2::Template::TemplateToolkit' );
+is( $template-&gt;{'layout'}, 'mylayout', 'Correct layout set in the template' );</pre>
+
+<p>That's it. Pretty simple.</p>
+<h2><a name="testing_dsl"></a>Testing DSL</h2>
+
+<p>In order to test DSL keywords, we need to have a valid application who
+uses <code>Dancer2</code> and then try its DSL keywords. That's actually simple
+enough.</p>
+<p>The test <i>t/dsl/app.t</i> provides our test for the <code>app</code> keyword, which
+returns the current <a href="https://metacpan.org/module/Dancer2::Core::App">Dancer2::Core::App</a> a package is using.</p>
+<p>First we have our boilerplate:</p>
+<pre class="prettyprint">use strict;
+use warnings;
+use Test::More tests =&gt; 2;
+use Plack::Test;
+use HTTP::Request::Common;</pre>
+
+<p>Now we define an application in the code in its own scope so it doesn't
+interfere with the test itself, but be available to it:</p>
+<pre class="prettyprint">{
+    package App;
+    use Dancer2;
+    get '/' =&gt; sub {
+        my $app = app;
+        ::isa_ok( $app, 'Dancer2::Core::App' );
+        ::is( $app-&gt;name, 'App', 'Correct app name' );
+    };
+}</pre>
+
+<p>This application uses <code>Dancer2</code> and thus receives the keywords. Since
+our test is written in the implicit <code>main</code> package, the double colon
+shorthand for <code>main::</code> class resolution allows it to call <code>::isa_ok</code>
+to reach the test's <code>isa_ok</code> function (provided by <a href="https://metacpan.org/module/Test::More">Test::More</a>) and
+<code>::is</code> allows it to reach the test's <code>is</code> function (also provided by
+<a href="https://metacpan.org/module/Test::More">Test::More</a>).</p>
+<p>This test checks that if you reach the main path, it will call the
+<code>app</code> keyword and check it received an instance, that it is the right
+instance, and that the name was even set correctly.</p>
+<p>We still need to write the code to reach it:</p>
+<pre class="prettyprint">Plack::Test-&gt;create( App-&gt;to_app )-&gt;request( GET '/' );</pre>
+
+<p>There.</p>
+<p>Often we return values from a web request, but in this specific
+case we're really interested in an object which the route receives and
+doing it by sending it back as a response would just be overengineering.</p>
+<h2><a name="what_about_external_files"></a>What about external files?</h2>
+
+<p>Some tests might require some additional files to work. Perhaps you're
+checking the side-effect of reading from the configuration file or a piece
+of code that works with the file system.</p>
+<p>One example is <i>t/issues/gh-639</i> which has additional directories, each
+have their own <i>config.yml</i> and test file to check against different
+configuration files as part of a general issue opened.</p>
+<h2><a name="conclusions"></a>Conclusions</h2>
+
+<p>Following the guidelines you will be able to help us improve our tests,
+move our old ones, and provide new tests for issues you or others might
+open.</p>
+<p>We're very interested in having a good test coverage and providing
+reliable behavior. Tests are a major component of it and we would always
+be more than happy to receive more help in that field.</p>
+<p>Next time you open an issue, consider writing a test for it. If you're
+not sure how, please contact us. We would love to help. :)</p>
+<h2><a name="author"></a>Author</h2>
+
+<p>This article has been written by Sawyer X for the Perl
+Dancer Advent Calendar 2014.</p>
+<h2><a name="copyright"></a>Copyright</h2>
+
+<p>No copyright retained. Enjoy.</p>
+<p>2014 // Sawyer X <code>&lt;xsawyerx@cpan.org&gt;</code></p>
+</div>
+
+ <div id="disqus_thread"></div>
+    <script type="text/javascript">
+        /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+        var disqus_shortname = 'danceradvent'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function() {
+            var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+            dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+
+
+
+</div>
+
+
+
+<div id="footer">
+Powered by the  
+<a href="http://perldancer.org/" title="Perl Dancer - Perl web framework">
+Dancer Perl web framework</a>
+</div>
+</div>
+
+
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-25174467-2']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+</body>
+</html>

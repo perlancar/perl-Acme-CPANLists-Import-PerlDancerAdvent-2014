@@ -1,0 +1,152 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+<title> Outreach Program for Women (OPW) and Dancer | PerlDancer Advent Calendar</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="alternate" type="application/rss+xml" title="All Articles " href="/feed/2014" /> 
+
+
+<!-- Grab Google CDN's jQuery. fall back to local if necessary -->
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js" type="text/javascript"></script>
+<script type="text/javascript">/* <![CDATA[ */
+    !window.jQuery && document.write('<script src="/javascripts/jquery.js"><\/script>')
+/* ]]> */</script>
+
+<!-- Prettyfy -->
+<link href="/css/prettify.css" type="text/css" rel="stylesheet" />
+<script type="text/javascript" src="/javascripts/prettify.js"></script>
+
+</head>
+<body onload="prettyPrint()">
+<div id="page">
+
+<div id="sidebar">
+<a href="/" class="homelink">Dancer Advent Calendar</a><br />
+
+<p>
+The PerlDancer Advent Calendar is a community-driven project that aims 
+to showcase the Dancer Perl web framework.
+</p>
+
+<p>
+Each day of December until Christmas, one article about Dancer. Stay tuned for new moves!
+</p>
+
+<ul id="sidebar-items">
+<li>
+    <h3>About Dancer</h3>
+    <ul class="links">
+        <li><a href="http://www.perldancer.org/">Dancer homepage</a></li>
+        <li><a href="http://twitter.com/PerlDancer">Official Twitter</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer">Dancer on GitHub</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer2">Dancer 2 on GitHub</a></li>
+        <li><a class="feed" href="/feed/2014">RSS</a></li>
+    </ul>
+</li>
+</ul>
+</div>
+
+
+<div id="content">
+<div class="pod-document"><h1><a name="outreach_program_for_women__opw__and_dancer"></a>Outreach Program for Women (OPW) and Dancer</h1>
+
+<p>The <a href="https://opw.gnome.org">Outreach Program for Women</a> (OPW) helps
+women work on Open Source and Free Software applications while
+receiving a salary and having a mentor by their side.</p>
+<p><a href="http://www.perlfoundation.org/">The Perl Foundation</a> (TPF) is
+<a href="http://www.perlfoundation.org/outreach_program_for_women">participating</a>
+this year again, and this year we have the pleasure of participating
+with Dancer!</p>
+<h2><a name="our_participant"></a>Our participant</h2>
+
+<p>Our applicant, Snigdha Dagar, has been accepted to work on <a href="https://metacpan.org/module/Dancer2">Dancer2</a>'s
+documentation overhaul!</p>
+<p>She had already contributed the first draft of the
+<a href="https://metacpan.org/module/Dancer2::Manual::Migration">Dancer2::Manual::Migration</a> document to help users with upgrading from
+<a href="https://metacpan.org/module/Dancer">Dancer</a> to <a href="https://metacpan.org/module/Dancer2">Dancer2</a>.</p>
+<h2><a name="the_documentation_overhaul"></a>The documentation overhaul</h2>
+
+<p>The documentation overhaul was deemed a crucial component in making the
+upgrading from Dancer 1 to Dancer 2 more attainable.</p>
+<p>The current documentation has been copied over from Dancer 1, but is not
+completely compatible. Some things have changed and many features have
+been added. Unfortunately in the frenzy of continuing upgrading Dancer
+and its abilities, along with important improvements, we lack the tuits
+to resolve the outstanding problems with the current documentation.</p>
+<p>Starting from scratch would be a tremendous amount of work, and whether
+it will be less or more work than going through the current documentation
+with a fine comb and sorting it out still does not resolve the problem
+with the lack of personnel for this task.</p>
+<p>What we need is human resources - and not the department. :)</p>
+<h2><a name="there_is_a_plan"></a>There is a plan</h2>
+
+<p>Snigdha has provided a plan for overhauling the documentation, which
+includes researching other FOSS projects, provide introductory material,
+How-to guides, and cohesiveness of the overall documentation.</p>
+<p>Her work will help resolve the documentation problems, assure consistency,
+accuracy, and above all, a well structured, helpful documentation for such
+an important project.</p>
+<h2><a name="there_will_be_updates"></a>There will be updates</h2>
+
+<p>We are excited and delighted to have her help in these upcoming months
+and we will be providing updates on the progress made.</p>
+<p>We are certain Snigdha would appreciate any guidance and assistance from
+the community. Feel free to suggest corrections, improvements, what to
+focus on, what to not focus on, and how to assure the success of her work
+and the project.</p>
+<h2><a name="author"></a>Author</h2>
+
+<p>This article has been written by Sawyer X for the Perl
+Dancer Advent Calendar 2014.</p>
+<h2><a name="copyright"></a>Copyright</h2>
+
+<p>No copyright retained. Enjoy.</p>
+<p>2014 // Sawyer X <code>&lt;xsawyerx@cpan.org&gt;</code></p>
+</div>
+
+ <div id="disqus_thread"></div>
+    <script type="text/javascript">
+        /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+        var disqus_shortname = 'danceradvent'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function() {
+            var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+            dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+
+
+
+</div>
+
+
+
+<div id="footer">
+Powered by the  
+<a href="http://perldancer.org/" title="Perl Dancer - Perl web framework">
+Dancer Perl web framework</a>
+</div>
+</div>
+
+
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-25174467-2']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+</body>
+</html>

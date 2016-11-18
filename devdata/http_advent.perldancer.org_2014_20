@@ -1,0 +1,205 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+<title> Meddling with Middlewares | PerlDancer Advent Calendar</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="alternate" type="application/rss+xml" title="All Articles " href="/feed/2014" /> 
+
+
+<!-- Grab Google CDN's jQuery. fall back to local if necessary -->
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js" type="text/javascript"></script>
+<script type="text/javascript">/* <![CDATA[ */
+    !window.jQuery && document.write('<script src="/javascripts/jquery.js"><\/script>')
+/* ]]> */</script>
+
+<!-- Prettyfy -->
+<link href="/css/prettify.css" type="text/css" rel="stylesheet" />
+<script type="text/javascript" src="/javascripts/prettify.js"></script>
+
+</head>
+<body onload="prettyPrint()">
+<div id="page">
+
+<div id="sidebar">
+<a href="/" class="homelink">Dancer Advent Calendar</a><br />
+
+<p>
+The PerlDancer Advent Calendar is a community-driven project that aims 
+to showcase the Dancer Perl web framework.
+</p>
+
+<p>
+Each day of December until Christmas, one article about Dancer. Stay tuned for new moves!
+</p>
+
+<ul id="sidebar-items">
+<li>
+    <h3>About Dancer</h3>
+    <ul class="links">
+        <li><a href="http://www.perldancer.org/">Dancer homepage</a></li>
+        <li><a href="http://twitter.com/PerlDancer">Official Twitter</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer">Dancer on GitHub</a></li>
+        <li><a href="http://github.com/PerlDancer/Dancer2">Dancer 2 on GitHub</a></li>
+        <li><a class="feed" href="/feed/2014">RSS</a></li>
+    </ul>
+</li>
+</ul>
+</div>
+
+
+<div id="content">
+<div class="pod-document"><h1><a name="meddling_with_middlewares"></a>Meddling with Middlewares</h1>
+
+<p><a href="https://metacpan.org/module/Plack">Plack</a> provides a useful component called a
+<a href="https://metacpan.org/module/Plack::Middleware">Middleware</a>, which wraps applications with
+functionality.</p>
+<p>You can use them to your advantage to tack on additional features and
+improvements to your application.</p>
+<h2><a name="middleware_usage"></a>Middleware usage</h2>
+
+<p>Adding middlewares can be breeze using the <a href="https://metacpan.org/module/Plack::Builder">Plack::Builder</a> syntax:</p>
+<pre class="prettyprint">use MyApp;
+use Plack::Builder;
+
+builder {
+    enable 'Auth::Basic', authenticator =&gt; sub {
+        my ( $user, $pass, $env ) = @_;
+        # test $user and $pass somehow
+    };
+
+    MyApp-&gt;to_app;
+};</pre>
+
+<p>Since <code>to_app</code> returns an app, you can use it as the last statement
+to <code>builder</code>. In this example we add <code>Plack::Middleware::Auth::Basic</code>
+middleware to our new application stack.</p>
+<p>We can add more:</p>
+<pre class="prettyprint">builder {
+    enable 'Auth::Basic', authenticator =&gt; sub { ... };
+
+    enable 'Rewrite', rules =&gt; sub {
+        return 301
+            if s{^/foo/?$}{/bar/}
+            or s{^/baz/?$}{/quux/};
+
+        ...
+    };
+
+    MyApp-&gt;to_app;
+};</pre>
+
+<p>Now having <code>Plack::Middleware::Rewrite</code> as well. Having it before
+<i>Auth::Basic</i> will assure the rewrites will happen first. Having it
+after <i>Auth::Basic</i> will assure authentication will happen first.</p>
+<h2><a name="multiple_dancer_applications"></a>Multiple Dancer applications</h2>
+
+<p>As explained in our <code>to_app</code>
+<a href="http://advent.perldancer.org/2014/9">article</a>, you can set up multiple
+<a href="https://metacpan.org/module/Dancer2">Dancer2</a> applications using the same syntax:</p>
+<pre class="prettyprint">use MyApp;
+use MyApp::Admin;
+use Plack::Builder;
+
+builder {
+    mount '/'      =&gt; MyApp-&gt;to_app;
+    mount '/admin' =&gt; MyApp::Admin-&gt;to_app;
+};</pre>
+
+<p>We can still add middlewares to that stack:</p>
+<pre class="prettyprint">builder {
+    enable 'Rewrite', rules =&gt; sub {
+        ...
+    };
+
+    mount '/'      =&gt; MyApp-&gt;to_app;
+    mount '/admin' =&gt; MyApp::Admin-&gt;to_app;
+};</pre>
+
+<p>Not bad, but there's one more situation to cover.</p>
+<h2><a name="going_nuts"></a>Going nuts</h2>
+
+<p>Let's take a look at another situation: adding authentication using a
+middleware:</p>
+<pre class="prettyprint">builder {
+    enable 'Auth::Basic', authenticator =&gt; sub { ... };
+
+    mount '/'      =&gt; MyApp-&gt;to_app;
+    mount '/admin' =&gt; MyApp::Admin-&gt;to_app;
+};</pre>
+
+<p>But wait. This doesn't make sense. We want to only enable authentication
+for the <i>admin</i> application. This will set it up to both of them.</p>
+<p>Since the Dancer application is a callback, and <code>builder</code> wraps
+callbacks by providing another callback... you might see where this is
+heading:</p>
+<pre class="prettyprint">builder {
+    mount '/'      =&gt; MyApp-&gt;to_app;
+    mount '/admin' =&gt; builder {
+        enable 'Auth::Basic', authenticator =&gt; sub { ... };
+
+        MyApp::Admin-&gt;to_app;
+    };
+};</pre>
+
+<p>Pretty cool, huh? Very!</p>
+<h2><a name="conclusion"></a>Conclusion</h2>
+
+<p>Middlewares are awesome and very easy to integrate with Dancer. In fact,
+we use middlewares internally in <a href="https://metacpan.org/module/Dancer2">Dancer2</a>, which you will read
+about in the next article.</p>
+<h2><a name="author"></a>Author</h2>
+
+<p>This article has been written by Sawyer X for the Perl
+Dancer Advent Calendar 2014.</p>
+<h2><a name="copyright"></a>Copyright</h2>
+
+<p>No copyright retained. Enjoy.</p>
+<p>2014 // Sawyer X <code>&lt;xsawyerx@cpan.org&gt;</code></p>
+</div>
+
+ <div id="disqus_thread"></div>
+    <script type="text/javascript">
+        /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+        var disqus_shortname = 'danceradvent'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function() {
+            var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+            dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+
+
+
+</div>
+
+
+
+<div id="footer">
+Powered by the  
+<a href="http://perldancer.org/" title="Perl Dancer - Perl web framework">
+Dancer Perl web framework</a>
+</div>
+</div>
+
+
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-25174467-2']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+</body>
+</html>
