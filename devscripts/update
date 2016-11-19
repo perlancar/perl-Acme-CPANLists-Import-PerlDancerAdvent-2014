@@ -19,7 +19,7 @@ gen_curried_sub(
                 name => '2014',
                 url => "http://advent.perldancer.org/2014/",
                 extract_urls => [map {"http://advent.perldancer.org/2014/$_"} @days],
-                summary => 'Modules mentioned in Perl Advent Calendar 2014',
+                summary => 'Modules mentioned in PerlDancer Advent Calendar 2014',
             },
             (map {
                 +{
